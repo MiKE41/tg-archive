@@ -278,6 +278,7 @@ class Sync:
         try:
             fpath = self.client.download_media(msg, file="./tmp/")
         except errors.FileReferenceExpiredError:
+            logging.info("Hit FileReferenceExpiredError. Trying to obtain new reference")
             refetch = self.client.get_messages(msg.peer_id, ids=msg.id)
             fpath = self.client.download_media(refetch, file="./tmp/")
         basename = os.path.basename(fpath)
@@ -291,6 +292,7 @@ class Sync:
             try:
                 tpath = self.client.download_media(msg, file="./tmp/", thumb=1)
             except errors.FileReferenceExpiredError:
+                logging.info("Hit FileReferenceExpiredError. Trying to obtain new reference")
                 refetch = self.client.get_messages(msg.peer_id, ids=msg.id)
                 tpath = self.client.download_media(refetch, file="./tmp/", thumb=1)
             tname = "thumb_{}.{}".format(msg.id, os.path.basename(tpath))
