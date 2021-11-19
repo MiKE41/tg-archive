@@ -275,7 +275,11 @@ class Sync:
         # Download the media to the temp dir and copy it back as
         # there does not seem to be a way to get the canonical
         # filename before the download.
-        fpath = self.client.download_media(msg, file="./tmp/")
+        try:
+            fpath = self.client.download_media(msg, file="./tmp/")
+        except errors.FileReferenceExpiredError:
+            refetch = self.client.get_messages(msg.peer_id, ids=msg.id)
+            fpath = self.client.download_media(refetch, file="./tmp/")
         basename = os.path.basename(fpath)
 
         newname = "{}.{}".format(msg.id, basename)
@@ -284,7 +288,11 @@ class Sync:
         # If it's a photo, download the thumbnail.
         tname = None
         if isinstance(msg.media, telethon.tl.types.MessageMediaPhoto):
-            tpath = self.client.download_media(msg, file="./tmp/", thumb=1)
+            try:
+                tpath = self.client.download_media(msg, file="./tmp/", thumb=1)
+            except errors.FileReferenceExpiredError:
+                refetch = self.client.get_messages(msg.peer_id, ids=msg.id)
+                tpath = self.client.download_media(refetch, file="./tmp/", thumb=1)
             tname = "thumb_{}.{}".format(msg.id, os.path.basename(tpath))
             shutil.move(tpath, os.path.join(self.config["media_dir"], tname))
 
