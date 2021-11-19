@@ -275,19 +275,17 @@ class Sync:
         # Download the media to the temp dir and copy it back as
         # there does not seem to be a way to get the canonical
         # filename before the download.
-        fpath = self.client.download_media(msg, file=tempfile.gettempdir())
+        fpath = self.client.download_media(msg, file="./tmp/")
         basename = os.path.basename(fpath)
 
-        newname = "{}.{}".format(msg.id, self._get_file_ext(basename))
+        newname = "{}.{}".format(msg.id, basename)
         shutil.move(fpath, os.path.join(self.config["media_dir"], newname))
 
         # If it's a photo, download the thumbnail.
         tname = None
         if isinstance(msg.media, telethon.tl.types.MessageMediaPhoto):
-            tpath = self.client.download_media(
-                msg, file=tempfile.gettempdir(), thumb=1)
-            tname = "thumb_{}.{}".format(
-                msg.id, self._get_file_ext(os.path.basename(tpath)))
+            tpath = self.client.download_media(msg, file="./tmp/", thumb=1)
+            tname = "thumb_{}.{}".format(msg.id, os.path.basename(tpath))
             shutil.move(tpath, os.path.join(self.config["media_dir"], tname))
 
         return basename, newname, tname
