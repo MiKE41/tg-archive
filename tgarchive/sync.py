@@ -155,12 +155,19 @@ class Sync:
                 elif isinstance(m.action, telethon.tl.types.MessageActionChatDeleteUser):
                     typ = "user_left"
 
+            if sticker:
+                msg_text = sticker
+            elif m.entities:
+                msg_text = telethon.extensions.markdown.unparse(m.raw_text, m.entities)
+            else:
+                msg_text = m.raw_text
+
             yield Message(
                 type=typ,
                 id=m.id,
                 date=m.date,
                 edit_date=m.edit_date,
-                content=sticker if sticker else m.raw_text,
+                content=msg_text,
                 reply_to=m.reply_to_msg_id if m.reply_to and m.reply_to.reply_to_msg_id else None,
                 user=self._get_user(m.sender),
                 media=med
