@@ -7,20 +7,23 @@ import yaml
 
 from .db import DB
 
-__version__ = "0.5.4"
+__version__ = "1.0.0"
 
 logging.basicConfig(format="%(asctime)s: %(message)s",
                     level=logging.INFO)
 
 _CONFIG = {
-    "api_id": "",
-    "api_hash": "",
+    "api_id": os.getenv("API_ID", ""),
+    "api_hash": os.getenv("API_HASH", ""),
     "group": "",
     "download_avatars": True,
     "avatar_size": [64, 64],
     "download_media": False,
     "media_dir": "media",
     "media_mime_types": [],
+    "proxy": {
+        "enable": False,
+    },
     "fetch_batch_size": 2000,
     "fetch_wait": 5,
     "fetch_limit": 0,
@@ -83,8 +86,6 @@ def main():
                    dest="template", help="path to the template file")
     b.add_argument("--rss-template", action="store", type=str, default=None,
                    dest="rss_template", help="path to the rss template file")
-    b.add_argument("-o", "--output", action="store", type=str, default="site",
-                   dest="output", help="path to the output directory")
     b.add_argument("--symlink", action="store_true", dest="symlink",
                    help="symlink media and other static files instead of copying")
 
@@ -111,6 +112,14 @@ def main():
             raise
 
         logging.info("created directory '{}'".format(args.path))
+        
+        # make sure the files are writable
+        os.chmod(args.path, 0o755)
+        for root, dirs, files in os.walk(args.path):
+            for d in dirs:
+                os.chmod(os.path.join(root, d), 0o755)
+            for f in files:
+                os.chmod(os.path.join(root, f), 0o644)
 
     # Sync from Telegram.
     elif args.sync:
@@ -143,10 +152,11 @@ def main():
         from .build import Build
 
         logging.info("building site")
-        b = Build(get_config(args.config), DB(args.data), args.symlink)
+        config = get_config(args.config)
+        b = Build(config, DB(args.data), args.symlink)
         b.load_template(args.template)
         if args.rss_template:
             b.load_rss_template(args.rss_template)
         b.build()
 
-        logging.info("published to directory '{}'".format(args.output))
+        logging.info("published to directory '{}'".format(config["publish_dir"]))
