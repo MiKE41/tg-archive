@@ -22,9 +22,10 @@ class Build:
     template = None
     db = None
 
-    def __init__(self, config, db):
+    def __init__(self, config, db, symlink):
         self.config = config
         self.db = db
+        self.symlink = symlink
 
         self.rss_template: Template = None
 
@@ -89,8 +90,11 @@ class Build:
 
         # The last page chronologically is the latest page. Make it index.
         if fname:
-            shutil.copy(os.path.join(self.config["publish_dir"], fname),
-                        os.path.join(self.config["publish_dir"], "index.html"))
+            if self.symlink:
+                os.symlink(fname, os.path.join(self.config["publish_dir"], "index.html"))
+            else:
+                shutil.copy(os.path.join(self.config["publish_dir"], fname),
+                            os.path.join(self.config["publish_dir"], "index.html"))
 
         # Generate RSS feeds.
         if self.config["publish_rss_feed"]:
@@ -119,7 +123,8 @@ class Build:
                                     pagination={"current": page,
                                                 "total": total_pages},
                                     make_filename=self.make_filename,
-                                    nl2br=self._nl2br)
+                                    nl2br=self._nl2br,
+                                    replace_msg_link=self._replace_msg_link)
 
         with open(os.path.join(self.config["publish_dir"], fname), "w", encoding="utf8") as f:
             f.write(html)
@@ -165,7 +170,8 @@ class Build:
                                             m=m,
                                             media_mime=media_mime,
                                             page_ids=self.page_ids,
-                                            nl2br=self._nl2br)
+                                            nl2br=self._nl2br,
+                                            replace_msg_link=self._replace_msg_link)
         out = m.content
         if not out and m.media:
             out = m.media.title
@@ -174,7 +180,18 @@ class Build:
     def _nl2br(self, s) -> str:
         # There has to be a \n before <br> so as to not break
         # Jinja's automatic hyperlinking of URLs.
-        return _NL2BR.sub("\n\n", s).replace("\n", "\n<br />")
+        return _NL2BR.sub("\n\n", str(s)).replace("\n", "\n<br />")
+
+    def _replace_msg_link(self, s) -> str:
+        # Replace Telegram message links with site links
+        result = re.sub(r"<a href=\"(https://t\.me/{}/)(\d+)\">".format(self.config["group"]),
+                        self._sub_msg_link, s)
+        return result
+
+    def _sub_msg_link(self, match):
+        if self.page_ids.get(int(match.group(2))) is None:
+            return match.group(0)
+        return match.group(0).replace(match.group(1), self.page_ids[int(match.group(2))] + "#")
 
     def _create_publish_dir(self):
         pubdir = self.config["publish_dir"]
@@ -189,13 +206,19 @@ class Build:
         # Copy the static directory into the output directory.
         for f in [self.config["static_dir"]]:
             target = os.path.join(pubdir, f)
-            if os.path.isfile(f):
+            if self.symlink:
+                os.symlink(os.path.abspath(f), target)
+            elif os.path.isfile(f):
                 shutil.copyfile(f, target)
             else:
                 shutil.copytree(f, target)
 
-        # If media downloading is enabled, copy the media directory.
+        # If media downloading is enabled, copy/symlink the media directory.
         mediadir = self.config["media_dir"]
         if os.path.exists(mediadir):
-            shutil.copytree(mediadir, os.path.join(
-                pubdir, os.path.basename(mediadir)))
+            if self.symlink:
+                os.symlink(os.path.abspath(mediadir), os.path.join(
+                    pubdir, os.path.basename(mediadir)))
+            else:
+                shutil.copytree(mediadir, os.path.join(
+                    pubdir, os.path.basename(mediadir)))
