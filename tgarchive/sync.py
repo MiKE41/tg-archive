@@ -88,6 +88,7 @@ class Sync:
             else:
                 break
 
+        self.client.session.save()
         self.db.commit()
         if self.config.get("use_takeout", False):
             self.finish_takeout()
